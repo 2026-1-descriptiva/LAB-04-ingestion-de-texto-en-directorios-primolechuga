@@ -5,6 +5,11 @@
 Escriba el codigo que ejecute la accion solicitada en cada pregunta.
 """
 
+import os
+import zipfile
+
+import pandas as pd  # type: ignore
+
 
 def pregunta_01():
     """
@@ -71,3 +76,47 @@ def pregunta_01():
 
 
     """
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+    files_dir = os.path.join(repo_root, "files")
+    zip_path = os.path.join(files_dir, "input.zip")
+    input_dir = os.path.join(files_dir, "input")
+    output_dir = os.path.join(files_dir, "output")
+
+    if not os.path.isdir(os.path.join(input_dir, "train")):
+        with zipfile.ZipFile(zip_path, "r") as archive:
+            archive.extractall(files_dir)
+
+    if os.path.isdir(os.path.join(input_dir, "input")):
+        input_dir = os.path.join(input_dir, "input")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    def build_dataset(split_name: str):
+        records = []
+        split_path = os.path.join(input_dir, split_name)
+
+        if not os.path.isdir(split_path):
+            return pd.DataFrame(records, columns=["phrase", "target"])
+
+        for sentiment in sorted(os.listdir(split_path)):
+            sentiment_path = os.path.join(split_path, sentiment)
+            if not os.path.isdir(sentiment_path):
+                continue
+
+            for filename in sorted(os.listdir(sentiment_path)):
+                if not filename.lower().endswith(".txt"):
+                    continue
+
+                file_path = os.path.join(sentiment_path, filename)
+                with open(file_path, "r", encoding="utf-8") as handle:
+                    phrase = handle.read().strip()
+
+                records.append({"phrase": phrase, "target": sentiment})
+
+        return pd.DataFrame(records, columns=["phrase", "target"])
+
+    train_df = build_dataset("train")
+    test_df = build_dataset("test")
+
+    train_df.to_csv(os.path.join(output_dir, "train_dataset.csv"), index=False)
+    test_df.to_csv(os.path.join(output_dir, "test_dataset.csv"), index=False)
